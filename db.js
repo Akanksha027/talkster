@@ -1,13 +1,19 @@
 const mongoose = require('mongoose');
+require('dotenv').config();  // Load environment variables from the .env file
 
-const mongoURI = 'mongodb://localhost:27017/blogDB';
-const connectDB = async() => {
-  try{
-    await mongoose.connect(mongoURI, {});
-    console.log("MongoDB connected");
+const connectDB = async () => {
+  const uri = process.env.MONGODB_URI;  // Access the MongoDB URI from .env
+
+  if (!uri) {
+    console.error("MongoDB URI is missing in the .env file!");
+    return;
+  }
+
+  try {
+    await mongoose.connect(uri, {});
+    console.log('Connected to MongoDB Atlas successfully!');
   } catch (err) {
-    console.error('MongoDB connection error:' , err);
-    process.getMaxListeners(1);
+    console.error('Error connecting to MongoDB Atlas:', err.message);
   }
 };
 

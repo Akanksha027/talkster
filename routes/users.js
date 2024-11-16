@@ -1,57 +1,66 @@
 const express = require('express');
-const jwt = require('jsonwebtoken');
 const User = require('../models/user');
-const authenticateToken = require('../middlewares/authenticateToken'); // Import the middleware
+const jwt = require('jsonwebtoken');
+const authenticateToken = require('../middlewares/authenticateToken'); // Middleware for token authentication
 const router = express.Router();
 
-// Register route without hashing
+// Registration route
 router.post('/register', async (req, res) => {
-  const { username, password } = req.body;
-  console.log("Registering user:", username);
+  console.log("Register route hit");
+  console.log("Request body:", req.body);
 
-  const newUser = new User({ username, password }); // Save password as plain text
+  const { username, password } = req.body;
+
+  const newUser = new User({ username, password });
 
   try {
     await newUser.save();
     res.status(201).json({ message: 'User registered successfully' });
   } catch (error) {
+    console.log("Error:", error);
     res.status(400).json({ error: 'Failed to register user' });
   }
 });
 
-// Login route without hashing
-router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-  console.log("Username:", username, "Password:", password);
-
-  const user = await User.findOne({ username });
-  if (!user) {
-    console.log('User not found');
-    return res.status(400).json({ error: 'Invalid credentials' });
+// Get all users
+router.get('/', async (req, res) => {
+  try {
+    const users = await User.find(); // Fetch all users
+    res.status(200).json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error.message);
+    res.status(500).json({ message: 'Error fetching users', error: error.message });
   }
-
-  // Directly compare the plain text passwords
-  if (password !== user.password) {
-    console.log('Password is incorrect');
-    return res.status(400).json({ error: 'Invalid credentials' });
-  }
-
-  console.log('Login Successful');
-  const token = jwt.sign({ userId: user._id }, 'guptt_raaz', { expiresIn: '98h' });
-  res.status(200).json({ token });
 });
 
-// Profile route (Protected route)
+// Login route
+router.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  try {
+    const user = await User.findOne({ username });
+    if (!user || user.password !== password) {
+      return res.status(400).json({ error: 'Invalid credentials' });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '98h' });
+    res.json({ token });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Profile route
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select('-password'); // Don't return the password
+    const user = await User.findById(req.user.userId); // Extracted from the token
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ error: 'User not found' });
     }
-    res.json(user); // Return user profile
+    res.json({ username: user.username });
   } catch (error) {
-    console.error("Error fetching profile:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ error: 'Failed to fetch profile data' });
   }
 });
 

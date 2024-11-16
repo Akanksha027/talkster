@@ -1,40 +1,56 @@
 const express = require('express');
-const cors = require('cors');
-const connectDB = require('./db');
-const postRoutes = require('./routes/posts'); // Ensure this exports an Express router
-const userRoutes = require('./routes/users'); // Ensure this exports an Express router
-const authenticateToken = require('./middlewares/authenticateToken'); // Ensure this exports a middleware function
+const mongoose = require('mongoose');
+require('dotenv').config(); // Ensure this is at the top
+
+const connectDB = require('./db'); // Import connectDB from db.js
+const postRoutes = require('./routes/posts'); // Import post routes
+const userRoutes = require('./routes/users'); // Import user routes
+const authenticateToken = require('./middlewares/authenticateToken'); // Token middleware
 
 const app = express();
 
-// const commentRoutes = require('./routes/comments'); // Adjust the path if needed
+const cors = require("cors");
+app.use(cors({ origin: "http://localhost:5173", credentials: true }));
 
-// Middleware to handle JSON data from the frontend
-app.use(cors()); // Enable CORS for cross-origin requests
 app.use(express.json());
 
+// MongoDB connection
+const uri = process.env.MONGODB_URI;
+
 // Connect to the database
-connectDB();
+connectDB(); // Call the function once
+
+
+
+// Test route to check MongoDB connection
+app.get('/test-db', async (req, res) => {
+  try {
+    if (!mongoose.connection.readyState) {
+      throw new Error('Database is not connected');
+    }
+
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    res.status(200).send({ message: 'Connected to MongoDB Atlas!', collections });
+  } catch (error) {
+    console.error('Error in /test-db:', error.message);
+    res.status(500).send({ message: 'Internal Server Error', error: error.message });
+  }
+});
+
+app.get('/protected', authenticateToken, (req, res) => {
+  res.send('This is a protected route');
+});
+
 
 // Use routes
-app.use('/api/posts', postRoutes); // For post-related routes
-app.use('/api/users', userRoutes); // For user-related routes
-// app.use('/api/comments', commentRoutes); // Prefix the routes with '/api/comments'
+app.use('/api/posts', postRoutes);
+app.use('/api/users', userRoutes);
 
-// Protected route example (requires authentication)
 app.get('/protected', authenticateToken, (req, res) => {
   res.send({ message: 'This is a protected route' });
 });
 
-// Start the server
 const PORT = 5000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
-
-
-
-// abc:
-// {
-//   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NzMyMWZmYjY2NzhjYWY5YjA3NTdmZWQiLCJpYXQiOjE3MzEzMzgyNDcsImV4cCI6MTczMTUxMTA0N30.LXvjZeG1P2xi-C8bpE4lBgX-eLPNcbJHPvqWHgL_SWs"
-// }
